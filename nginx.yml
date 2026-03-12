@@ -1,0 +1,42 @@
+# nginx.yml
+---
+- name: Installation et configuration Nginx
+  hosts: webservers
+  become: true
+ 
+  vars:
+    site_name: monsite
+ 
+  tasks:
+ 
+    - name: Installer Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: yes
+ 
+    - name: Créer le dossier du site
+      ansible.builtin.file:
+        path: '/var/www/{{ site_name }}'
+        state: directory
+        owner: www-data
+        mode: '0755'
+ 
+    - name: Déployer la page d'accueil
+      ansible.builtin.copy:
+        content: |
+          <html><body>
+          <h1>Serveur du prof elie maman : {{ ansible_hostname }}</h1>
+          </body></html>
+        dest: '/var/www/{{ site_name }}/index.html'
+      notify: reload nginx
+  
+    - name: Démarrer nginx si pas déjà lancé
+      ansible.builtin.shell: pgrep nginx || nginx
+      args:
+        executable: /bin/bash
+
+  handlers:
+    - name: reload nginx
+      ansible.builtin.command: nginx -s reload
+

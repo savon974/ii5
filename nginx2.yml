@@ -1,0 +1,64 @@
+# nginx.yml
+---
+- name: Installation et configuration Nginx
+  hosts: webservers
+  become: true
+
+  vars:
+    site_root: "/var/www"
+
+  tasks:
+
+    - name: Installer Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Créer le dossier du site principal
+      ansible.builtin.file:
+        path: "{{ site_root }}"
+        state: directory
+        owner: www-data
+        mode: '0755'
+
+    - name: Déployer la page d'accueil
+      ansible.builtin.copy:
+        content: |
+          <html><body>
+          <h1>Serveur : {{ ansible_hostname }}</h1>
+          <p>IP : {{ ansible_default_ipv4.address }}</p>
+          </body></html>
+        dest: "{{ site_root }}/index.html"
+      notify: reload nginx
+
+    - name: Modifier le vhost principal de Nginx
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+
+              root {{ site_root }};
+              index index.html;
+
+              server_name _;
+
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+          }
+      notify: reload nginx
+
+    - name: S’assurer que Nginx est actif
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
